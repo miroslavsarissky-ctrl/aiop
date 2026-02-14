@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI x Nuclear: Knowledge Network — newcleo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --nc-teal: #009EA1;
+    --nc-teal-light: #00c4c7;
+    --nc-teal-dark: #007275;
+    --nc-orange: #ED6C22;
+    --nc-orange-light: #ff8a47;
+    --nc-dark: #313132;
+    --nc-bg: #0a0e14;
+    --nc-surface: rgba(10,14,20,0.96);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--nc-bg);
+    font-family: 'DM Sans', sans-serif;
+    color: #d8dce6;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
+  canvas#canvas-bg {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  svg#graph {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+  }
+
+  /* ── Header ── */
+  .header {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 10;
+    padding: 26px 36px 22px;
+    background: linear-gradient(180deg, rgba(10,14,20,0.97) 0%, rgba(10,14,20,0.55) 75%, transparent 100%);
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    gap: 18px;
+  }
+
+  .header-logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    color: var(--nc-teal);
+  }
+
+  .header-logo .dot { color: var(--nc-orange); }
+
+  .header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 3.5px;
+    text-transform: uppercase;
+    color: #fff;
+  }
+
+  .header p {
+    font-size: 10.5px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(216,220,230,0.35);
+    margin-left: auto;
+  }
+
+  /* ── Node Count ── */
+  .node-count {
+    position: fixed;
+    top: 28px; right: 36px;
+    z-index: 10;
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: rgba(216,220,230,0.3);
+    pointer-events: none;
+    text-align: right;
+  }
+  .node-count span {
+    color: var(--nc-teal);
+    font-weight: 700;
+    font-size: 22px;
+    display: block;
+    line-height: 1;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    position: fixed;
+    bottom: 22px; left: 36px;
+    z-index: 10;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 18px;
+    max-width: 720px;
+    pointer-events: auto;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 9.5px;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: rgba(216,220,230,0.45);
+    cursor: pointer;
+    transition: color 0.3s;
+    user-select: none;
+  }
+
+  .legend-item:hover { color: rgba(216,220,230,0.9); }
+  .legend-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed;
+    z-index: 20;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.22s ease;
+    max-width: 370px;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip-inner {
+    background: var(--nc-surface);
+    border: 1px solid rgba(0,158,161,0.25);
+    border-radius: 10px;
+    padding: 16px 20px;
+    backdrop-filter: blur(24px);
+    box-shadow: 0 16px 50px rgba(0,0,0,0.55), 0 0 30px rgba(0,158,161,0.06);
+  }
+  .tooltip-cat {
+    font-family: 'Space Mono', monospace;
+    font-size: 8.5px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .tooltip-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 7px;
+    line-height: 1.35;
+    color: #fff;
+  }
+  .tooltip-desc {
+    font-size: 11.5px;
+    line-height: 1.55;
+    color: rgba(216,220,230,0.65);
+  }
+  .tooltip-metric {
+    margin-top: 9px;
+    padding-top: 9px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    font-family: 'Space Mono', monospace;
+    font-size: 10.5px;
+    color: var(--nc-orange);
+  }
+
+  /* ── Detail Panel ── */
+  .detail-panel {
+    position: fixed;
+    top: 0; right: -440px;
+    width: 410px;
+    height: 100%;
+    z-index: 15;
+    background: var(--nc-surface);
+    border-left: 1px solid rgba(0,158,161,0.15);
+    backdrop-filter: blur(30px);
+    padding: 34px 30px;
+    overflow-y: auto;
+    transition: right 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .detail-panel.open { right: 0; }
+  .detail-panel::-webkit-scrollbar { width: 4px; }
+  .detail-panel::-webkit-scrollbar-thumb { background: rgba(0,158,161,0.2); border-radius: 4px; }
+
+  .detail-close {
+    position: absolute;
+    top: 18px; right: 18px;
+    width: 30px; height: 30px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50%;
+    background: transparent;
+    color: #d8dce6;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s, color 0.3s;
+  }
+  .detail-close:hover { border-color: var(--nc-teal); color: var(--nc-teal); }
+
+  .detail-cat {
+    font-family: 'Space Mono', monospace;
+    font-size: 9.5px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .detail-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 14px;
+    line-height: 1.3;
+    color: #fff;
+  }
+  .detail-desc {
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: rgba(216,220,230,0.65);
+    margin-bottom: 18px;
+  }
+  .detail-metric-box {
+    background: rgba(0,158,161,0.06);
+    border: 1px solid rgba(0,158,161,0.18);
+    border-radius: 8px;
+    padding: 13px 16px;
+    margin-bottom: 14px;
+  }
+  .detail-metric-label {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(216,220,230,0.35);
+    margin-bottom: 3px;
+  }
+  .detail-metric-value {
+    font-family: 'Space Mono', monospace;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--nc-orange);
+  }
+  .detail-connections { margin-top: 18px; }
+  .detail-connections h3 {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(216,220,230,0.35);
+    margin-bottom: 10px;
+  }
+  .detail-conn-item {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: color 0.2s;
+    font-size: 11.5px;
+  }
+  .detail-conn-item:hover { color: var(--nc-teal); }
+  .detail-conn-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ── Controls ── */
+  .controls {
+    position: fixed;
+    bottom: 22px; right: 36px;
+    z-index: 10;
+    display: flex;
+    gap: 7px;
+    pointer-events: auto;
+  }
+  .ctrl-btn {
+    width: 34px; height: 34px;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 7px;
+    background: rgba(10,14,20,0.6);
+    backdrop-filter: blur(10px);
+    color: rgba(216,220,230,0.5);
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+  .ctrl-btn:hover { border-color: var(--nc-teal); color: var(--nc-teal); }
+
+  /* ── SVG Animations ── */
+  @keyframes pulseCatalyst {
+    0%   { r: var(--base-r); opacity: 0.3; }
+    50%  { r: calc(var(--base-r) + 6); opacity: 0; }
+    100% { r: var(--base-r); opacity: 0; }
+  }
+
+  .catalyst-pulse {
+    animation: none; /* controlled via JS */
+  }
+
+  @keyframes spinOrbit {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="canvas-bg"></canvas>
+<svg id="graph"></svg>
+
+<div class="header">
+  <div class="header-logo">newcleo<span class="dot">.</span></div>
+  <h1>AI x Nuclear Innovation Network</h1>
+  <p>Interactive Knowledge Map &mdash; LFR &amp; MOX Programmes</p>
+</div>
+
+<div class="node-count">
+  <span id="countNum">0</span>
+  data points
+</div>
+
+<div class="legend" id="legend"></div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tooltip-inner">
+    <div class="tooltip-cat" id="ttCat"></div>
+    <div class="tooltip-title" id="ttTitle"></div>
+    <div class="tooltip-desc" id="ttDesc"></div>
+    <div class="tooltip-metric" id="ttMetric"></div>
+  </div>
+</div>
+
+<div class="detail-panel" id="detailPanel">
+  <button class="detail-close" id="detailClose">&times;</button>
+  <div class="detail-cat" id="dpCat"></div>
+  <div class="detail-title" id="dpTitle"></div>
+  <div class="detail-desc" id="dpDesc"></div>
+  <div id="dpMetrics"></div>
+  <div class="detail-connections" id="dpConns">
+    <h3>Connected Nodes</h3>
+    <div id="dpConnList"></div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" id="zoomIn" title="Zoom In">+</button>
+  <button class="ctrl-btn" id="zoomOut" title="Zoom Out">&minus;</button>
+  <button class="ctrl-btn" id="resetView" title="Reset">&#x27F2;</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script>
+// ═════════════════════════════════════════════
+// NEWCLEO BRAND PALETTE
+// ═════════════════════════════════════════════
+const TEAL = '#009EA1';
+const TEAL_L = '#00c4c7';
+const ORANGE = '#ED6C22';
+const ORANGE_L = '#ff8a47';
+
+const categories = {
+  catalyst:   { label: 'Catalysts',           color: ORANGE },
+  accel:      { label: 'AI Acceleration',     color: ORANGE_L },
+  core:       { label: 'Core Design',         color: TEAL },
+  thermal:    { label: 'Thermal-Hydraulics',  color: '#00b4d8' },
+  fuel:       { label: 'Fuel Fabrication',    color: '#c084fc' },
+  materials:  { label: 'Materials Science',   color: '#fbbf24' },
+  twin:       { label: 'Digital Twins',       color: TEAL_L },
+  safety:     { label: 'Safety & Licensing',  color: '#a5b4fc' },
+  frontier:   { label: 'Frontier AI',         color: '#f472b6' },
+  us:         { label: 'US Strategy',         color: '#2dd4bf' },
+  china:      { label: 'China Strategy',      color: '#fb923c' },
+  newcleo:    { label: 'newcleo Impact',      color: '#34d399' },
+};
+
+// ═════════════════════════════════════════════
+// DATA
+// ═════════════════════════════════════════════
+const nodes = [
+  { id: 'nuscale_ornl', cat: 'catalyst', label: 'NuScale x ORNL', desc: 'GAIN-funded partnership to develop an AI-enabled nuclear design framework for optimising multi-reactor fuel management across 12 SMR cores.', metric: '12 SMR cores optimised', size: 18 },
+  { id: 'gemini_deep', cat: 'catalyst', label: 'Gemini 3 Deep Think', desc: 'Google frontier reasoning model for science/engineering. At Duke Wang Lab, optimised crystal growth fabrication achieving a 100 um thin film target that prior methods could not reach.', metric: '100 um thin film target', size: 16 },
+  { id: 'genesis', cat: 'catalyst', label: 'DOE Genesis Mission', desc: '26 grand challenges with AI as central enabling technology. Nuclear challenge commits to autonomous control rooms, AI-driven safety frameworks, and intelligent digital twins.', metric: '26 grand challenges', size: 20 },
+
+  { id: 'benchmarks', cat: 'accel', label: 'Exponential Benchmarks', desc: 'GPQA Diamond scores rose from ~50% to 93.2% in 18 months. SWE-bench went from 4.4% to 80.9%. AI now reasons at PhD-level in physics, chemistry, and materials science.', metric: '50% to 93.2% GPQA', size: 17 },
+  { id: 'inflection', cat: 'accel', label: 'Nov-Dec 2025 Sprint', desc: 'In 25 days: xAI Grok 4.1, Google Gemini 3, Anthropic Claude Opus 4.5, and OpenAI GPT-5.2 all released. Each surpassed predecessors on key reasoning metrics.', metric: '4 models in 25 days', size: 15 },
+  { id: 'agents', cat: 'accel', label: 'Agentic AI Revolution', desc: 'Multi-agent orchestration with parallel processing. The AI agent market crossed $7.8 billion. Networks of specialised agents work simultaneously on decomposed complex tasks.', metric: '$7.8B agent market', size: 16 },
+  { id: 'cost_drop', cat: 'accel', label: 'Inference Cost Collapse', desc: 'The cost of frontier AI inference fell 280-fold in two years. GPT-4-class reasoning that cost $30/million tokens in 2023 now costs roughly $0.10/million tokens.', metric: '280x cost reduction', size: 14 },
+
+  { id: 'ornl_tcr', cat: 'core', label: 'ORNL TCR Programme', desc: 'Pioneered AI-driven core design with optimisation algorithm for arbitrary core geometry. ML multiphysics emulators run 300-500x faster than direct simulation.', metric: '300-500x faster', size: 17 },
+  { id: 'argonne_gnn', cat: 'core', label: 'Argonne GNN Twins', desc: 'Graph neural network approach for whole-plant digital twins. Trained on EBR-II sodium-cooled fast reactor data, achieving inference in seconds vs. minutes.', metric: 'Seconds vs minutes', size: 16 },
+  { id: 'pymaise', cat: 'core', label: 'pyMAISE (U. Michigan)', desc: 'Open-source AutoML platform for nuclear engineering. NRC-funded, provides built-in feature importance analysis for transparent, explainable AI in nuclear safety.', metric: 'Open-source AutoML', size: 13 },
+  { id: 'nuscale_fuel', cat: 'core', label: 'NuScale AI Fuel Mgmt', desc: 'AI explores fuel loading and shuffling strategies across 12 SMR cores, treating modules and shared fuel pool as one system for efficiencies beyond single-reactor analysis.', metric: '12-core optimisation', size: 14 },
+  { id: 'westinghouse_hive', cat: 'core', label: 'Westinghouse HiVE', desc: 'Highly Intelligent and Versatile Engine AI platform. Reviews optimal fuel loading patterns to improve reactor power and minimise fuel usage. Won Databricks GenAI award.', metric: 'GenAI award winner', size: 15 },
+
+  { id: 'sg_rom', cat: 'thermal', label: 'Steam Generator ROM', desc: 'Deep-learning reduced-order model for steam generator thermal-hydraulics. Evaluates a full transient in seconds compared to hours for the original CFD code.', metric: 'Hours to seconds', size: 15 },
+  { id: 'lbe_bundles', cat: 'thermal', label: 'LBE Rod Bundle ML', desc: 'ML models predict thermal-hydraulic parameters in lead-bismuth eutectic cooled fast reactor rod bundles. R-squared up to 0.97 for fuel cladding temperature.', metric: 'R2 = 0.97', size: 14 },
+  { id: 'deeponet_sensors', cat: 'thermal', label: 'DeepONet Virtual Sensors', desc: 'Deep Operator Networks as real-time virtual sensors predicting key coolant parameters from limited sensor inputs. Valuable for harsh environments.', metric: 'Real-time prediction', size: 13 },
+  { id: 'argonne_thermal', cat: 'thermal', label: 'Argonne GNN Thermals', desc: 'Treats reactor thermal system as a graph for GNN learning. Predicts transient coolant conditions with inference times orders of magnitude faster.', metric: 'Orders of magnitude faster', size: 14 },
+
+  { id: 'jaea_mox', cat: 'fuel', label: 'JAEA MOX Pellet Model', desc: 'Gradient boosting regression model predicting sintered density of MOX fuel pellets from 18 process parameters. Achieved R2 = 0.996 near-perfect accuracy.', metric: 'R2 = 0.996', size: 16 },
+  { id: 'cnn_cracks', cat: 'fuel', label: 'CNN Crack Detection', desc: 'CNN segmentation model achieving ~92% pixel-level F1-score detecting surface cracks on UO2 pellets. Automates previously manual optical inspection.', metric: '92% F1-score', size: 13 },
+  { id: 'west_17hr', cat: 'fuel', label: 'Westinghouse 17-Hr Cut', desc: 'AI models eliminated an entire 17-hour fuel manufacturing step while eliminating scrap in each pellet lot.', metric: '17 hours eliminated', size: 15 },
+
+  { id: 'deng_corrosion', cat: 'materials', label: 'LBE Corrosion ML', desc: 'Interpretable ML model predicting oxidation corrosion of F/M steels in lead-bismuth eutectic using SHAP analysis. Key factors: temperature, oxygen, exposure time.', metric: 'SHAP interpretable', size: 16 },
+  { id: 'irradiation_ml', cat: 'materials', label: 'Irradiation Embrittlement', desc: 'UW-Madison/IISc ML models predicting mechanical property changes of F/M steels after neutron irradiation. Could reduce lengthy irradiation campaigns.', metric: 'Reduced testing cycles', size: 14 },
+  { id: 'argonne_defects', cat: 'materials', label: 'Argonne Hidden Defects', desc: 'AI-enhanced imaging revealed micro-flaws in AM 316L stainless steel invisible to conventional QC. Critical for safety-critical nuclear components.', metric: 'Invisible flaws detected', size: 13 },
+  { id: 'spacex_alloys', cat: 'materials', label: 'SpaceX AI Alloy Dev', desc: 'SpaceX/QuesTek used ICME with ML to develop superalloys. Reduced traditional 15-20 year development timeline to ~6 years.', metric: '15-20 yrs to ~6 yrs', size: 17 },
+  { id: 'genesis_materials', cat: 'materials', label: 'Genesis: Materials', desc: 'DOE Challenge 14: Physics-aware AI frameworks for designing materials with predictable functionality using foundation models and generative AI.', metric: 'Materials discovery', size: 14 },
+
+  { id: 'argonne_twin', cat: 'twin', label: 'Argonne Plant Twin', desc: 'Whole-plant digital twin validated on EBR-II and FHR. GNN-based twin predicted primary loop dynamics within 0.5 deg C of experimental measurements.', metric: 'Within 0.5 deg C', size: 16 },
+  { id: 'gemina', cat: 'twin', label: 'ARPA-E GEMINA', desc: '9 projects totalling ~$27M for Generating Electricity Managed by Intelligent Nuclear Assets. Kairos Power built ML-driven autonomous control.', metric: '$27M / 9 projects', size: 15 },
+  { id: 'digital_reactor_eu', cat: 'twin', label: 'Europe Digital Reactor', desc: 'Four-year Reacteur Numerique programme by EDF, Framatome, CEA to create the most realistic virtual simulator of a nuclear reactor ever made.', metric: 'Most realistic virtual reactor', size: 14 },
+
+  { id: 'mhi_nlp', cat: 'safety', label: 'MHI NLP for PRA', desc: 'Mitsubishi Heavy Industries used NLP to automatically validate Probabilistic Risk Assessment accident sequence results.', metric: 'Automated PRA validation', size: 14 },
+  { id: 'nrc_ai_plan', cat: 'safety', label: 'NRC AI Strategic Plan', desc: 'NUREG-2261 (2023-2027): Five goals including regulatory guidance for AI, staff training, and preparing to review AI-based licensing submittals.', metric: '5-year strategic plan', size: 13 },
+  { id: 'genesis_regulatory', cat: 'safety', label: 'Genesis: Regulatory AI', desc: 'Challenge 25: Auditable AI using LLMs + agents to digest safety requirements, automate documentation, reduce licensing from years to months.', metric: 'Years to months', size: 15 },
+  { id: 'explainable_ai', cat: 'safety', label: 'Explainable AI (XAI)', desc: 'pyMAISE provides built-in feature importance analysis so engineers and regulators can see exactly which parameters drove any AI conclusion.', metric: 'Transparent decisions', size: 12 },
+
+  { id: 'gpt52', cat: 'frontier', label: 'GPT-5.2 Physics Discovery', desc: 'Proposed a new formula for gluon scattering amplitudes. First plausible claim that an LLM contributed an original result in theoretical physics.', metric: 'Original physics discovery', size: 17 },
+  { id: 'mit_cad', cat: 'frontier', label: 'MIT AI CAD Agent', desc: 'AI agent using vision, RL, and language modelling converts 2D sketches into 3D CAD models automatically. Trained on 41,000+ CAD parts.', metric: '41,000+ CAD parts', size: 14 },
+  { id: 'bertha', cat: 'frontier', label: 'Westinghouse bertha', desc: 'Fine-tuned nuclear LLM compiling licensing document sections from months to minutes by processing NRC regulatory guides and prior licensing bases.', metric: 'Months to minutes', size: 15 },
+  { id: 'claude_opus', cat: 'frontier', label: 'Claude Opus 4.5', desc: 'Leads SWE-bench Verified at 80.9%. Part of the new generation reasoning at PhD-level across scientific domains.', metric: '80.9% SWE-bench', size: 14 },
+
+  { id: 'doe_gain', cat: 'us', label: 'DOE GAIN Programme', desc: 'Vouchers coupling private companies with national labs. Explicitly mentions advanced plant management using AI/ML. Enables US market entry.', metric: 'National lab access', size: 14 },
+  { id: 'us_labs', cat: 'us', label: 'US National Lab Ecosystem', desc: 'ORNL, Argonne, INL, and university programmes form the most developed AI-nuclear ecosystem globally.', metric: 'Largest AI-nuclear ecosystem', size: 16 },
+  { id: 'chips_act', cat: 'us', label: 'CHIPS & Science Act', desc: 'Increased DOE Office of Science funding for computational research including AI applications in nuclear engineering.', metric: 'Increased DOE funding', size: 12 },
+
+  { id: 'clear', cat: 'china', label: 'CLEAR LFR Programme', desc: 'China LEAd-based Reactor at INEST/FDS using genetic algorithm core neutronics optimisation and neural network models for lead coolant thermal-hydraulics.', metric: 'AI-augmented LFR', size: 16 },
+  { id: 'china_fleet', cat: 'china', label: 'China Fleet Data', desc: '~60 operating reactors (~61 GW) with 28-38 under construction. Fleet data could train superior predictive maintenance and operational AI models.', metric: '60+ reactors, 61 GW', size: 17 },
+  { id: 'china_patent', cat: 'china', label: 'Chinese DeepONet Patent', desc: 'Patent CN117473873B: DeepM&Mnet neural network using DeepONet for solving nuclear reactor physics equations. Filed Nov 2023, granted Apr 2024.', metric: 'Active IP protection', size: 13 },
+  { id: 'cnnc_strategy', cat: 'china', label: 'CNNC Innovation Strategy', desc: 'CNNC 2021 Innovation-Driven Development Strategy calls for intelligent nuclear power plant development. 14th Five-Year Plan emphasises smart manufacturing.', metric: 'National priority', size: 14 },
+
+  { id: 'lfr_digital_twin', cat: 'newcleo', label: 'LFR Digital Twin (Day 1)', desc: 'newcleo should operate its LFR with an AI-driven digital twin from day one. Argonne methodology validated on EBR-II provides a transferable framework.', metric: 'Day-one digital twin', size: 15 },
+  { id: 'mox_ai_qc', cat: 'newcleo', label: 'MOX AI Quality Control', desc: 'JAEA gradient boosting + CNN inspection can automate pellet QC from the first production line with near-zero scrap.', metric: 'Near-zero scrap target', size: 14 },
+  { id: 'corrosion_model', cat: 'newcleo', label: 'Lead Corrosion Prediction', desc: 'Train a gradient boosting model with SHAP interpretability on newcleo experimental data to guide structural material selection for lead coolant.', metric: 'Material selection AI', size: 14 },
+  { id: 'investor_narrative', cat: 'newcleo', label: 'AI Investor Narrative', desc: 'NuScale stock moved 10% on an AI announcement. newcleo closed fuel cycle + AI story could be powerfully differentiated for F-4 filing.', metric: '10% stock precedent', size: 13 },
+  { id: 'data_governance', cat: 'newcleo', label: 'ML-Ready Data Governance', desc: 'Capture all experimental, simulation, and operational data in ML-compatible formats from day one. Data is fuel for every AI initiative.', metric: 'Foundation for all AI', size: 13 },
+];
+
+const links = [
+  { source: 'nuscale_ornl', target: 'genesis', v: 2 },
+  { source: 'nuscale_ornl', target: 'nuscale_fuel', v: 3 },
+  { source: 'gemini_deep', target: 'benchmarks', v: 2 },
+  { source: 'gemini_deep', target: 'gpt52', v: 2 },
+  { source: 'genesis', target: 'genesis_materials', v: 3 },
+  { source: 'genesis', target: 'genesis_regulatory', v: 3 },
+  { source: 'genesis', target: 'doe_gain', v: 2 },
+  { source: 'benchmarks', target: 'inflection', v: 3 },
+  { source: 'benchmarks', target: 'agents', v: 2 },
+  { source: 'inflection', target: 'claude_opus', v: 2 },
+  { source: 'inflection', target: 'gpt52', v: 2 },
+  { source: 'inflection', target: 'gemini_deep', v: 2 },
+  { source: 'agents', target: 'cost_drop', v: 2 },
+  { source: 'cost_drop', target: 'benchmarks', v: 1 },
+  { source: 'ornl_tcr', target: 'argonne_gnn', v: 2 },
+  { source: 'ornl_tcr', target: 'nuscale_fuel', v: 2 },
+  { source: 'ornl_tcr', target: 'nuscale_ornl', v: 2 },
+  { source: 'argonne_gnn', target: 'argonne_twin', v: 3 },
+  { source: 'argonne_gnn', target: 'argonne_thermal', v: 3 },
+  { source: 'pymaise', target: 'explainable_ai', v: 3 },
+  { source: 'pymaise', target: 'nrc_ai_plan', v: 2 },
+  { source: 'westinghouse_hive', target: 'bertha', v: 2 },
+  { source: 'westinghouse_hive', target: 'west_17hr', v: 2 },
+  { source: 'sg_rom', target: 'lbe_bundles', v: 2 },
+  { source: 'sg_rom', target: 'argonne_thermal', v: 2 },
+  { source: 'lbe_bundles', target: 'deeponet_sensors', v: 2 },
+  { source: 'deeponet_sensors', target: 'china_patent', v: 2 },
+  { source: 'argonne_thermal', target: 'argonne_twin', v: 3 },
+  { source: 'lbe_bundles', target: 'clear', v: 2 },
+  { source: 'jaea_mox', target: 'mox_ai_qc', v: 3 },
+  { source: 'jaea_mox', target: 'cnn_cracks', v: 2 },
+  { source: 'cnn_cracks', target: 'west_17hr', v: 2 },
+  { source: 'west_17hr', target: 'westinghouse_hive', v: 2 },
+  { source: 'jaea_mox', target: 'west_17hr', v: 1 },
+  { source: 'deng_corrosion', target: 'corrosion_model', v: 3 },
+  { source: 'deng_corrosion', target: 'irradiation_ml', v: 2 },
+  { source: 'irradiation_ml', target: 'argonne_defects', v: 2 },
+  { source: 'spacex_alloys', target: 'genesis_materials', v: 2 },
+  { source: 'spacex_alloys', target: 'deng_corrosion', v: 1 },
+  { source: 'genesis_materials', target: 'genesis', v: 3 },
+  { source: 'argonne_defects', target: 'argonne_gnn', v: 1 },
+  { source: 'argonne_twin', target: 'lfr_digital_twin', v: 3 },
+  { source: 'argonne_twin', target: 'gemina', v: 2 },
+  { source: 'gemina', target: 'doe_gain', v: 2 },
+  { source: 'digital_reactor_eu', target: 'argonne_twin', v: 1 },
+  { source: 'digital_reactor_eu', target: 'lfr_digital_twin', v: 2 },
+  { source: 'mhi_nlp', target: 'nrc_ai_plan', v: 2 },
+  { source: 'nrc_ai_plan', target: 'genesis_regulatory', v: 2 },
+  { source: 'explainable_ai', target: 'nrc_ai_plan', v: 2 },
+  { source: 'genesis_regulatory', target: 'bertha', v: 2 },
+  { source: 'gpt52', target: 'claude_opus', v: 1 },
+  { source: 'mit_cad', target: 'agents', v: 2 },
+  { source: 'bertha', target: 'genesis_regulatory', v: 2 },
+  { source: 'doe_gain', target: 'nuscale_ornl', v: 3 },
+  { source: 'doe_gain', target: 'us_labs', v: 2 },
+  { source: 'us_labs', target: 'ornl_tcr', v: 2 },
+  { source: 'us_labs', target: 'argonne_gnn', v: 2 },
+  { source: 'chips_act', target: 'doe_gain', v: 2 },
+  { source: 'clear', target: 'china_fleet', v: 2 },
+  { source: 'clear', target: 'china_patent', v: 2 },
+  { source: 'china_fleet', target: 'cnnc_strategy', v: 3 },
+  { source: 'cnnc_strategy', target: 'clear', v: 2 },
+  { source: 'lfr_digital_twin', target: 'data_governance', v: 2 },
+  { source: 'mox_ai_qc', target: 'data_governance', v: 2 },
+  { source: 'corrosion_model', target: 'data_governance', v: 2 },
+  { source: 'investor_narrative', target: 'nuscale_ornl', v: 1 },
+  { source: 'lfr_digital_twin', target: 'argonne_gnn', v: 2 },
+  { source: 'mox_ai_qc', target: 'jaea_mox', v: 3 },
+  { source: 'corrosion_model', target: 'deng_corrosion', v: 3 },
+  { source: 'investor_narrative', target: 'cost_drop', v: 1 },
+  { source: 'clear', target: 'lfr_digital_twin', v: 1 },
+  { source: 'china_fleet', target: 'us_labs', v: 1 },
+  { source: 'agents', target: 'bertha', v: 1 },
+  { source: 'agents', target: 'mit_cad', v: 2 },
+  { source: 'gemini_deep', target: 'spacex_alloys', v: 1 },
+];
+
+// ═════════════════════════════════════════════
+// BACKGROUND
+// ═════════════════════════════════════════════
+const bgCanvas = document.getElementById('canvas-bg');
+const bgCtx = bgCanvas.getContext('2d');
+
+function resizeBg() {
+  bgCanvas.width = window.innerWidth;
+  bgCanvas.height = window.innerHeight;
+  drawBg();
+}
+
+function drawBg() {
+  const w = bgCanvas.width, h = bgCanvas.height;
+  bgCtx.fillStyle = '#0a0e14';
+  bgCtx.fillRect(0, 0, w, h);
+  // Dot grid
+  bgCtx.fillStyle = 'rgba(255,255,255,0.012)';
+  for (let x = 0; x < w; x += 36) {
+    for (let y = 0; y < h; y += 36) {
+      bgCtx.beginPath();
+      bgCtx.arc(x, y, 0.5, 0, Math.PI * 2);
+      bgCtx.fill();
+    }
+  }
+  // Teal radial
+  const g1 = bgCtx.createRadialGradient(w * 0.35, h * 0.4, 0, w * 0.35, h * 0.4, w * 0.45);
+  g1.addColorStop(0, 'rgba(0,158,161,0.035)');
+  g1.addColorStop(1, 'transparent');
+  bgCtx.fillStyle = g1;
+  bgCtx.fillRect(0, 0, w, h);
+  // Orange radial
+  const g2 = bgCtx.createRadialGradient(w * 0.7, h * 0.55, 0, w * 0.7, h * 0.55, w * 0.35);
+  g2.addColorStop(0, 'rgba(237,108,34,0.02)');
+  g2.addColorStop(1, 'transparent');
+  bgCtx.fillStyle = g2;
+  bgCtx.fillRect(0, 0, w, h);
+}
+
+window.addEventListener('resize', resizeBg);
+resizeBg();
+
+// ═════════════════════════════════════════════
+// D3 GRAPH
+// ═════════════════════════════════════════════
+const W = window.innerWidth;
+const H = window.innerHeight;
+const svg = d3.select('#graph').attr('width', W).attr('height', H);
+const defs = svg.append('defs');
+
+// Glow filter
+const gf = defs.append('filter').attr('id', 'glow').attr('x', '-50%').attr('y', '-50%').attr('width', '200%').attr('height', '200%');
+gf.append('feGaussianBlur').attr('stdDeviation', '3.5').attr('result', 'b');
+const gm = gf.append('feMerge');
+gm.append('feMergeNode').attr('in', 'b');
+gm.append('feMergeNode').attr('in', 'SourceGraphic');
+
+// Stronger glow for catalysts
+const cf = defs.append('filter').attr('id', 'glowStrong').attr('x', '-80%').attr('y', '-80%').attr('width', '260%').attr('height', '260%');
+cf.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'b');
+const cm = cf.append('feMerge');
+cm.append('feMergeNode').attr('in', 'b');
+cm.append('feMergeNode').attr('in', 'SourceGraphic');
+
+// Link glow
+const lf = defs.append('filter').attr('id', 'linkGlow');
+lf.append('feGaussianBlur').attr('stdDeviation', '1.8').attr('result', 'b');
+const lm = lf.append('feMerge');
+lm.append('feMergeNode').attr('in', 'b');
+lm.append('feMergeNode').attr('in', 'SourceGraphic');
+
+const container = svg.append('g');
+const linkGroup = container.append('g');
+const nodeGroup = container.append('g');
+
+const zoomBehavior = d3.zoom().scaleExtent([0.25, 5]).on('zoom', e => container.attr('transform', e.transform));
+svg.call(zoomBehavior);
+
+const nodeMap = {};
+nodes.forEach(n => nodeMap[n.id] = n);
+
+const simulation = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d => d.id).distance(d => 125 - d.v * 15).strength(d => 0.14 + d.v * 0.05))
+  .force('charge', d3.forceManyBody().strength(-380).distanceMax(520))
+  .force('center', d3.forceCenter(W / 2, H / 2))
+  .force('collision', d3.forceCollide().radius(d => d.size + 14))
+  .force('x', d3.forceX(W / 2).strength(0.04))
+  .force('y', d3.forceY(H / 2).strength(0.04));
+
+// Links
+const link = linkGroup.selectAll('line').data(links).enter().append('line')
+  .attr('stroke', d => {
+    const sid = typeof d.source === 'object' ? d.source.id : d.source;
+    return categories[nodeMap[sid]?.cat]?.color || '#333';
+  })
+  .attr('stroke-opacity', d => 0.04 + d.v * 0.04)
+  .attr('stroke-width', d => 0.5 + d.v * 0.35)
+  .attr('filter', 'url(#linkGlow)');
+
+// Nodes
+const node = nodeGroup.selectAll('g').data(nodes).enter().append('g')
+  .attr('cursor', 'pointer')
+  .call(d3.drag().on('start', dragS).on('drag', dragD).on('end', dragE));
+
+// ── Catalyst pulsating rings ──
+node.filter(d => d.cat === 'catalyst').each(function(d) {
+  const g = d3.select(this);
+  // Ring 1
+  g.append('circle').attr('r', d.size + 4).attr('fill', 'none')
+    .attr('stroke', ORANGE).attr('stroke-width', 1.5).attr('opacity', 0)
+    .attr('class', 'cat-pulse-1');
+  // Ring 2
+  g.append('circle').attr('r', d.size + 4).attr('fill', 'none')
+    .attr('stroke', ORANGE).attr('stroke-width', 1).attr('opacity', 0)
+    .attr('class', 'cat-pulse-2');
+  // Ring 3
+  g.append('circle').attr('r', d.size + 4).attr('fill', 'none')
+    .attr('stroke', ORANGE_L).attr('stroke-width', 0.8).attr('opacity', 0)
+    .attr('class', 'cat-pulse-3');
+});
+
+// ── Accel spinning orbit elements ──
+node.filter(d => d.cat === 'accel').each(function(d) {
+  const g = d3.select(this);
+  // Orbit ring
+  g.append('circle').attr('r', d.size + 10).attr('fill', 'none')
+    .attr('stroke', ORANGE_L).attr('stroke-width', 0.4).attr('stroke-opacity', 0.25)
+    .attr('stroke-dasharray', '3 6')
+    .attr('class', 'orbit-ring');
+  // Spinning dot container
+  const spinner = g.append('g').attr('class', 'orbit-spinner');
+  spinner.append('circle').attr('cx', d.size + 10).attr('cy', 0)
+    .attr('r', 2.5).attr('fill', ORANGE_L).attr('opacity', 0.8);
+  // Second spinner offset
+  const spinner2 = g.append('g').attr('class', 'orbit-spinner-2');
+  spinner2.append('circle').attr('cx', -(d.size + 10)).attr('cy', 0)
+    .attr('r', 1.8).attr('fill', ORANGE).attr('opacity', 0.5);
+});
+
+// ── Hover pulse ring (all nodes) ──
+node.append('circle').attr('r', d => d.size + 8).attr('fill', 'none')
+  .attr('stroke', d => categories[d.cat].color).attr('stroke-opacity', 0).attr('stroke-width', 1)
+  .attr('class', 'hover-ring');
+
+// Radial gradients
+nodes.forEach(d => {
+  const c = d3.color(categories[d.cat].color);
+  const g = defs.append('radialGradient').attr('id', 'g-' + d.id).attr('cx', '35%').attr('cy', '35%');
+  g.append('stop').attr('offset', '0%').attr('stop-color', c.brighter(0.6)).attr('stop-opacity', 0.4);
+  g.append('stop').attr('offset', '100%').attr('stop-color', c.darker(1.6)).attr('stop-opacity', 0.12);
+});
+
+// Main circle
+node.append('circle').attr('r', d => d.size)
+  .attr('fill', d => 'url(#g-' + d.id + ')')
+  .attr('stroke', d => categories[d.cat].color)
+  .attr('stroke-width', d => d.cat === 'catalyst' ? 2 : 1.5)
+  .attr('stroke-opacity', 0.65)
+  .attr('filter', d => d.cat === 'catalyst' ? 'url(#glowStrong)' : 'url(#glow)')
+  .attr('class', 'main-circle');
+
+// Inner dot
+node.append('circle').attr('r', d => d.size * 0.33)
+  .attr('fill', d => categories[d.cat].color).attr('opacity', 0.55)
+  .attr('class', 'inner-dot');
+
+// Label
+node.append('text').text(d => d.label)
+  .attr('dy', d => d.size + 15).attr('text-anchor', 'middle')
+  .attr('font-family', "'DM Sans', sans-serif").attr('font-size', '9px').attr('font-weight', '500')
+  .attr('fill', 'rgba(216,220,230,0.5)').attr('pointer-events', 'none').attr('class', 'node-label');
+
+// ═════════════════════════════════════════════
+// ANIMATIONS
+// ═════════════════════════════════════════════
+
+// Catalyst pulse animation
+function animateCatalystPulse() {
+  ['.cat-pulse-1', '.cat-pulse-2', '.cat-pulse-3'].forEach((cls, i) => {
+    d3.selectAll(cls).each(function() {
+      const el = d3.select(this);
+      const baseR = +el.datum().size + 4;
+      el.attr('r', baseR).attr('opacity', 0.45)
+        .transition().delay(i * 400).duration(1800).ease(d3.easeCubicOut)
+        .attr('r', baseR + 22 + i * 6).attr('opacity', 0)
+        .attr('stroke-width', 0.3);
+    });
+  });
+}
+animateCatalystPulse();
+setInterval(animateCatalystPulse, 2400);
+
+// Accel spin animation
+let spinAngle = 0;
+function animateSpin() {
+  spinAngle += 1.8;
+  d3.selectAll('.orbit-spinner').attr('transform', 'rotate(' + spinAngle + ')');
+  d3.selectAll('.orbit-spinner-2').attr('transform', 'rotate(' + (-spinAngle * 0.7) + ')');
+  requestAnimationFrame(animateSpin);
+}
+animateSpin();
+
+// Ambient random pulse for other nodes
+function ambientPulse() {
+  node.select('.hover-ring')
+    .filter(d => d.cat !== 'catalyst' && Math.random() > 0.92)
+    .attr('stroke-opacity', 0.2).attr('r', function(d) { return d.size + 5; })
+    .transition().duration(1400).ease(d3.easeCubicOut)
+    .attr('r', function(d) { return d.size + 22; }).attr('stroke-opacity', 0)
+    .on('end', function(d) { d3.select(this).attr('r', d.size + 8); });
+}
+setInterval(ambientPulse, 2200);
+
+// ═════════════════════════════════════════════
+// INTERACTIONS
+// ═════════════════════════════════════════════
+const tooltipEl = document.getElementById('tooltip');
+let hoveredNode = null, selectedNode = null;
+
+node.on('mouseenter', function(ev, d) {
+  hoveredNode = d;
+  highlightConnections(d);
+  document.getElementById('ttCat').textContent = categories[d.cat].label;
+  document.getElementById('ttCat').style.color = categories[d.cat].color;
+  document.getElementById('ttTitle').textContent = d.label;
+  document.getElementById('ttDesc').textContent = d.desc.length > 130 ? d.desc.substring(0, 130) + '...' : d.desc;
+  document.getElementById('ttMetric').textContent = d.metric || '';
+  tooltipEl.classList.add('visible');
+})
+.on('mousemove', function(ev) {
+  const x = ev.clientX + 16, y = ev.clientY - 10;
+  const tw = tooltipEl.offsetWidth, th = tooltipEl.offsetHeight;
+  tooltipEl.style.left = (x + tw > window.innerWidth ? ev.clientX - tw - 16 : x) + 'px';
+  tooltipEl.style.top = (y + th > window.innerHeight ? ev.clientY - th - 10 : y) + 'px';
+})
+.on('mouseleave', function() {
+  hoveredNode = null;
+  if (!selectedNode) resetHL();
+  tooltipEl.classList.remove('visible');
+})
+.on('click', function(ev, d) {
+  ev.stopPropagation();
+  selectedNode = d;
+  openPanel(d);
+  highlightConnections(d);
+});
+
+svg.on('click', () => { selectedNode = null; closePanel(); resetHL(); });
+
+function getConnected(d) {
+  const ids = new Set([d.id]);
+  links.forEach(l => {
+    const s = typeof l.source === 'object' ? l.source.id : l.source;
+    const t = typeof l.target === 'object' ? l.target.id : l.target;
+    if (s === d.id) ids.add(t);
+    if (t === d.id) ids.add(s);
+  });
+  return ids;
+}
+
+function highlightConnections(d) {
+  const ids = getConnected(d);
+  node.select('.main-circle').transition().duration(200)
+    .attr('stroke-opacity', n => ids.has(n.id) ? 1 : 0.08).attr('opacity', n => ids.has(n.id) ? 1 : 0.12);
+  node.select('.inner-dot').transition().duration(200).attr('opacity', n => ids.has(n.id) ? 0.7 : 0.04);
+  node.select('.node-label').transition().duration(200).attr('fill-opacity', n => ids.has(n.id) ? 1 : 0.1);
+  node.select('.hover-ring').attr('stroke-opacity', n => n.id === d.id ? 0.35 : 0);
+  // Dim special effects for non-connected
+  node.selectAll('.orbit-ring').transition().duration(200).attr('stroke-opacity', function() {
+    const nd = d3.select(this.parentNode).datum();
+    return ids.has(nd.id) ? 0.25 : 0.03;
+  });
+  link.transition().duration(200)
+    .attr('stroke-opacity', l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      return (s === d.id || t === d.id) ? 0.35 + l.v * 0.1 : 0.008;
+    })
+    .attr('stroke-width', l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      return (s === d.id || t === d.id) ? 1.5 + l.v * 0.5 : 0.25;
+    });
+}
+
+function resetHL() {
+  node.select('.main-circle').transition().duration(400).attr('stroke-opacity', 0.65).attr('opacity', 1);
+  node.select('.inner-dot').transition().duration(400).attr('opacity', 0.55);
+  node.select('.node-label').transition().duration(400).attr('fill-opacity', 1);
+  node.select('.hover-ring').attr('stroke-opacity', 0);
+  node.selectAll('.orbit-ring').transition().duration(400).attr('stroke-opacity', 0.25);
+  link.transition().duration(400)
+    .attr('stroke-opacity', d => 0.04 + d.v * 0.04)
+    .attr('stroke-width', d => 0.5 + d.v * 0.35);
+}
+
+// Detail Panel
+function openPanel(d) {
+  document.getElementById('dpCat').textContent = categories[d.cat].label;
+  document.getElementById('dpCat').style.color = categories[d.cat].color;
+  document.getElementById('dpTitle').textContent = d.label;
+  document.getElementById('dpDesc').textContent = d.desc;
+  const mDiv = document.getElementById('dpMetrics');
+  mDiv.innerHTML = d.metric ? '<div class="detail-metric-box"><div class="detail-metric-label">Key Metric</div><div class="detail-metric-value">' + d.metric + '</div></div>' : '';
+  const cList = document.getElementById('dpConnList');
+  cList.innerHTML = '';
+  const conn = [];
+  links.forEach(l => {
+    const s = typeof l.source === 'object' ? l.source.id : l.source;
+    const t = typeof l.target === 'object' ? l.target.id : l.target;
+    if (s === d.id && nodeMap[t]) conn.push(nodeMap[t]);
+    if (t === d.id && nodeMap[s]) conn.push(nodeMap[s]);
+  });
+  conn.forEach(cn => {
+    const el = document.createElement('div');
+    el.className = 'detail-conn-item';
+    el.innerHTML = '<div class="detail-conn-dot" style="background:' + categories[cn.cat].color + '"></div><span>' + cn.label + '</span>';
+    el.onclick = () => {
+      selectedNode = cn;
+      openPanel(cn);
+      highlightConnections(cn);
+      const tr = d3.zoomTransform(svg.node());
+      svg.transition().duration(600).call(zoomBehavior.transform,
+        d3.zoomIdentity.translate(W/2 - 200, H/2).scale(tr.k).translate(-cn.x, -cn.y));
+    };
+    cList.appendChild(el);
+  });
+  document.getElementById('detailPanel').classList.add('open');
+}
+
+function closePanel() { document.getElementById('detailPanel').classList.remove('open'); }
+document.getElementById('detailClose').addEventListener('click', e => {
+  e.stopPropagation(); selectedNode = null; closePanel(); resetHL();
+});
+
+// Drag
+function dragS(ev, d) { if (!ev.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }
+function dragD(ev, d) { d.fx = ev.x; d.fy = ev.y; }
+function dragE(ev, d) { if (!ev.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; }
+
+// Controls
+document.getElementById('zoomIn').onclick = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.4);
+document.getElementById('zoomOut').onclick = () => svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+document.getElementById('resetView').onclick = () => svg.transition().duration(600).call(zoomBehavior.transform, d3.zoomIdentity);
+
+// Tick
+simulation.on('tick', () => {
+  link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+    .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+  node.attr('transform', d => 'translate(' + d.x + ',' + d.y + ')');
+});
+
+// Legend
+const legendEl = document.getElementById('legend');
+Object.entries(categories).forEach(([key, val]) => {
+  const item = document.createElement('div');
+  item.className = 'legend-item';
+  item.innerHTML = '<div class="legend-dot" style="background:' + val.color + '"></div>' + val.label;
+  item.onclick = () => {
+    const ids = new Set(nodes.filter(n => n.cat === key).map(n => n.id));
+    node.select('.main-circle').transition().duration(300)
+      .attr('stroke-opacity', n => ids.has(n.id) ? 1 : 0.06).attr('opacity', n => ids.has(n.id) ? 1 : 0.08);
+    node.select('.inner-dot').transition().duration(300).attr('opacity', n => ids.has(n.id) ? 0.8 : 0.02);
+    node.select('.node-label').transition().duration(300).attr('fill-opacity', n => ids.has(n.id) ? 1 : 0.08);
+    link.transition().duration(300).attr('stroke-opacity', l => {
+      const s = typeof l.source === 'object' ? l.source.id : l.source;
+      const t = typeof l.target === 'object' ? l.target.id : l.target;
+      return (ids.has(s) && ids.has(t)) ? 0.3 : 0.008;
+    });
+    setTimeout(() => { if (!selectedNode && !hoveredNode) resetHL(); }, 3500);
+  };
+  legendEl.appendChild(item);
+});
+
+// Counter
+let cnt = 0;
+const cntEl = document.getElementById('countNum');
+const cntI = setInterval(() => { cnt++; cntEl.textContent = cnt; if (cnt >= nodes.length) clearInterval(cntI); }, 32);
+
+// Resize
+window.addEventListener('resize', () => {
+  const w = window.innerWidth, h = window.innerHeight;
+  svg.attr('width', w).attr('height', h);
+  simulation.force('center', d3.forceCenter(w / 2, h / 2));
+  simulation.force('x', d3.forceX(w / 2).strength(0.04));
+  simulation.force('y', d3.forceY(h / 2).strength(0.04));
+  simulation.alpha(0.3).restart();
+});
+</script>
+</body>
+</html>
